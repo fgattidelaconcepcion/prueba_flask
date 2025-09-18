@@ -9,7 +9,4 @@ Expone un endpoint `/analyze` que recibe un `topic` y un `domain`, y devuelve:
 
 ## Configuración
 
-1. Clonar el repositorio
-```bash
-git clone <TU_REPO_PRIVADO>
-cd prueba_flask
+
