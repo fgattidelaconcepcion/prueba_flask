@@ -25,13 +25,12 @@ def domain_from_url(url):
         return ""
 
 
-# =========================================================
-# Función para obtener keywords relacionadas (expand_keywords)
-# =========================================================
+# Función para obtener keywords relacionadas
 def expand_keywords(topic, rapidapi_key=None, country="us", language="en", mock=False):
     """
     Obtengo keywords relacionadas usando RapidAPI.
-    Intento con Smart Keyword Research API y si falla uso Google Keyword Insight.
+    - Primero intento con Smart Keyword Research API (/keyword-research).
+    - Si falla, uso Google Keyword Insight API (/keysuggest).
     """
     if mock:
         return [f"{topic} ejemplo1", f"{topic} ejemplo2"]
@@ -39,11 +38,9 @@ def expand_keywords(topic, rapidapi_key=None, country="us", language="en", mock=
     if rapidapi_key is None:
         rapidapi_key = os.getenv("RAPIDAPI_KEY")
 
-    # --------------------------
-    # Intento 1: Smart Keyword Research API (/search)
-    # --------------------------
+    # Intento 1: Smart Keyword Research API (/keyword-research)
     try:
-        url = "https://smart-keyword-research-api.p.rapidapi.com/search"
+        url = "https://smart-keyword-research-api.p.rapidapi.com/keyword-research"
         headers = {
             "x-rapidapi-host": "smart-keyword-research-api.p.rapidapi.com",
             "x-rapidapi-key": rapidapi_key
@@ -55,20 +52,27 @@ def expand_keywords(topic, rapidapi_key=None, country="us", language="en", mock=
         }
 
         response = requests.get(url, headers=headers, params=params)
+        print("📡 Smart API status:", response.status_code)
+        print("📡 Smart API raw:", response.text)
+
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, dict) and "data" in data:
-                return [kw.get("keyword", "") for kw in data["data"] if "keyword" in kw]
-            if isinstance(data, list):
-                return data
+            # Algunos devuelven "data", otros "result"
+            if isinstance(data, dict):
+                if "result" in data:
+                    kws = [kw.get("keyword", "") for kw in data["result"] if "keyword" in kw]
+                    print("Keywords Smart API (result):", kws)
+                    return kws
+                if "data" in data:
+                    kws = [kw.get("keyword", "") for kw in data["data"] if "keyword" in kw]
+                    print("Keywords Smart API (data):", kws)
+                    return kws
         else:
             print("⚠️ Smart Keyword Research API devolvió:", response.status_code, response.text)
     except Exception as e:
-        print("❌ Error con Smart Keyword Research API:", str(e))
+        print(" Error con Smart Keyword Research API:", str(e))
 
-    # --------------------------
     # Intento 2: Google Keyword Insight API (/keysuggest)
-    # --------------------------
     try:
         url = "https://google-keyword-insight1.p.rapidapi.com/keysuggest/"
         headers = {
@@ -82,24 +86,26 @@ def expand_keywords(topic, rapidapi_key=None, country="us", language="en", mock=
         }
 
         response = requests.get(url, headers=headers, params=params)
+        print("📡 Google Insight status:", response.status_code)
+        print("📡 Google Insight raw:", response.text)
+
         response.raise_for_status()
         data = response.json()
 
         if isinstance(data, list):
-            return data
+            return [kw.get("text", kw) for kw in data]
         if isinstance(data, dict) and "suggestions" in data:
             return data["suggestions"]
 
         return data
     except Exception as e:
-        print("❌ Error con Google Keyword Insight API:", str(e))
+        print("Error con Google Keyword Insight API:", str(e))
 
     return []
 
 
-# =========================================================
+
 # Función para clusterizar keywords
-# =========================================================
 def cluster_keywords(keywords, serp_top10, threshold=2):
     """
     Construyo un grafo de keywords. Creo aristas si comparten ≥threshold URLs en el Top10.
@@ -109,7 +115,7 @@ def cluster_keywords(keywords, serp_top10, threshold=2):
     G.add_nodes_from(keywords)
 
     for i in range(len(keywords)):
-        for j in range(i+1, len(keywords)):
+        for j in range(i + 1, len(keywords)):
             kw1, kw2 = keywords[i], keywords[j]
             overlap = len(set(serp_top10.get(kw1, [])) & set(serp_top10.get(kw2, [])))
             if overlap >= threshold:
@@ -119,9 +125,7 @@ def cluster_keywords(keywords, serp_top10, threshold=2):
     return [list(c) for c in clusters]
 
 
-# =========================================================
 # Función para clasificar clusters
-# =========================================================
 def classify_clusters(clusters, domain, serp_top20):
     """
     Marco un cluster como present si el dominio aparece en Top20 de alguna keyword.
@@ -145,9 +149,7 @@ def classify_clusters(clusters, domain, serp_top20):
     return classified
 
 
-# =========================================================
 # Función para detectar competidores
-# =========================================================
 def top_competitors(serp_top20, exclude_domain, top_n=3):
     """
     Cuento los dominios que aparecen en Top20 (excluyendo el dominio input).

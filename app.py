@@ -37,7 +37,7 @@ def analyze():
         country = data.get("country", "us")
         language = data.get("language", "en")
 
-        # 1. Expando keywords (hasta 30 relacionadas)
+        #  Expando keywords (hasta 30 relacionadas)
         keywords_raw = expand_keywords(topic, country=country, language=language, mock=MOCK_MODE)[:30]
 
         keywords = [kw["text"] if isinstance(kw, dict) and "text" in kw else str(kw) for kw in keywords_raw]
@@ -46,7 +46,7 @@ def analyze():
         serp_top10 = {}
         serp_top20 = {}
 
-        # 2. SERP Top 100 por keyword
+        # SERP Top 100 por keyword
         for kw in keywords:
             url = "https://serpapi.com/search.json"
             params = {
@@ -71,17 +71,17 @@ def analyze():
             serp_top10[kw] = urls[:10]
             serp_top20[kw] = urls[:20]
 
-        # 3. Clusters con threshold = 2
+        #  Clusters con threshold = 5 o 2
         clusters_raw = cluster_keywords(keywords, serp_top10, threshold=2)
         print(" Clusters generados:", clusters_raw)
 
-        # 4. Clasifico clusters
+        #  Clasifico clusters
         clusters = classify_clusters(clusters_raw, domain, serp_top20)
 
-        # 5. Competidores
+        #  Competidores
         competitors = top_competitors(serp_top20, exclude_domain=domain, top_n=3)
 
-        # 6. Respuesta final
+        #  Respuesta final
         response = {
             "topic": topic,
             "domain": domain,
